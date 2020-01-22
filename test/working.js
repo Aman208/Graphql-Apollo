@@ -18,14 +18,27 @@ const author_list = [
     { id: 4, authorId: 3, title: 'Launchpad is Cool', votes: 7 },
   ];
 
+  //0 for No reaction
+  //1 for like
+  //2 for dislike
+
   const comment_list = [
-   { id :1 , authorId:1 , postId : 1 , text:'Comment One' } ,
-   { id :2 , authorId:1 , postId : 2 , text:'Comment Two' } ,
-   { id :3 , authorId:2 , postId : 3 , text:'Comment Three' } ,
-   { id :4 , authorId:2 , postId : 4 , text:'Comment Four' } ,
-   { id :5 , authorId:3,  postId : 4 , text:'Comment Five' } ,
+   { id :1 , authorId:1 , postId : 1 , text:'Comment One' , reaction : 1 } ,
+   { id :2 , authorId:1 , postId : 2 , text:'Comment Two' , reaction : 2 } ,
+   { id :3 , authorId:2 , postId : 3 , text:'Comment Three', reaction : 0 } ,
+   { id :4 , authorId:2 , postId : 4 , text:'Comment Four' , reaction : 2} ,
+   { id :5 , authorId:3,  postId : 4 , text:'Comment Five' , reaction : 2 } ,
 
   ]
+
+  const reaction_list = [
+    { id :1 ,  authorId:1 , postId : 1 ,  reaction : 1 } ,
+    { id :2, authorId:2 , postId : 1 ,  reaction : 2 } ,
+    { id :3 , authorId:2 , postId : 3 ,  reaction : 0 } ,
+    { id :4 ,authorId:2 , postId : 4 ,  reaction : 2} ,
+    { id:5  ,  authorId:3,  postId : 4 ,  reaction : 2 } ,
+ 
+   ]
 
 const typeDefs = gql`
 
@@ -35,6 +48,8 @@ type Author {
     email: String
     posts: [Post]
     myComment : [Comment]
+    myLike : [Like]
+    myDisLike: [DisLike]
 }
 
   type Post {
@@ -43,6 +58,8 @@ type Author {
     author: Author
     votes: Int
     comments:[Comment]
+    like: [Like]
+    disLike :[DisLike]
   }
 
  type Comment {
@@ -51,6 +68,20 @@ type Author {
     author : Author
     text : String 
  } 
+
+ type Like {
+   id: Int!
+   post : Post
+   author : Author
+   reaction :Int
+ }
+
+ type DisLike {
+  id: Int!
+  post : Post
+  author : Author
+  reaction : Int
+ }
 
  input InputComment{
      postId:Int!
@@ -68,6 +99,17 @@ type Author {
     email : String
  }
 
+ input InputLike{
+   authorId : Int!
+   postId : Int!
+
+ }
+
+ input InputDisLike{ 
+  authorId:Int!
+  postId :Int!
+ }
+
   type Query {
     getPosts : [Post]
     getAuthors : [Author]
@@ -75,7 +117,8 @@ type Author {
     getAuthor(id : Int!) : Author 
     getComments : [Comment] 
     getComment(id : Int!) : Comment
-
+    getLikes : [Like]
+    getDisLikes : [DisLike]
     getCommentByAuthor(authorId :Int!) : Comment
     getCommentByPost(postId :Int!) : Comment
   
@@ -84,11 +127,11 @@ type Author {
 
   type Mutation {
     upvotePost (
-      postId: Int!
+      reaction : InputLike
     ): Post
 
     downvotePost (
-        postId: Int!
+       reaction : InputDisLike
       ): Post
 
     addPost( post : InputPost ) : Post
@@ -122,29 +165,39 @@ const addAuthor = ({author}) => {
   })
 }
 
-const upvotePost = ({postId}) => { return new Promise((res , reject) => {
-let post = post_list.find( p => p.id === postId) ;
-if(!post)
+const upvotePost = ({reaction}) => { return new Promise((res , reject) => {
+let post = post_list.find( p => p.id === reaction.postId) ;
+let author = author_list.find(p=> p.id ===reaction.authorId);
+if(!post && !author)
 {
-    return reject("Could not find such Post")
+    return reject("Could not find such Post or Author")
 }
-post.votes +=1;
- return res(post);
+let react = reaction_list.find(p => p.authorId === reaction.authorId && p.postId === reaction.postId );
+   react.reaction = 1;
+ return res(react);
 
 } )  
 }
 
-const downvotePost = ({postId}) => { return new Promise((res , reject) => {
-    let post = post_list.find( p => p.id === postId) ;
-    if(!post)
-    {
-        return reject("Could not find such Post")
-    }
-    post.votes -=1;
-     return res(post);
+const downvotePost = ({reaction}) => { return new Promise((res , reject) => {
+  let post = post_list.find( p => p.id === reaction.postId) ;
+  let author = author_list.find(p=> p.id ===reaction.authorId);
+  if(!post && !author)
+  {
+      return reject("Could not find such Post or Author")
+  }
+  let react = reaction_list.find(p => p.authorId === reaction.authorId && p.postId === reaction.postId );
+     react.reaction = 2;
+   return res(react);
     
     } )  
     }
+
+ 
+
+
+
+
 
 const resolvers ={
     Query :{
@@ -156,12 +209,14 @@ const resolvers ={
       getComments  : async ()  => Promise.resolve(comment_list) ,
       getComment : async (_  , {id}) => Promise.resolve(comment_list.find( p => p.id === id)) ,
 
+      getLikes : async () => Promise.resolve(reaction_list.filter(p => p.reaction === 1)) ,
+      getDisLikes : async () => Promise.resolve(reaction_list.filter(p => p.reaction === 2))
     },
 
     Mutation :{
      
-        upvotePost :  async ( _ , {postId}) => await upvotePost({postId}) ,
-        downvotePost : async (_ , {postId}) => await downvotePost({postId}) ,
+        upvotePost :  async ( _ , {reaction}) => await upvotePost({reaction}) ,
+        downvotePost : async (_ , {reaction}) => await downvotePost({reaction}) ,
         addPost  : async(_ , {post}) => await addPost({post}) ,
         addAuthor : async ( _ , {author}) => await addAuthor({author})
     } ,
@@ -170,13 +225,18 @@ const resolvers ={
       Author: {
         posts: author => _.filter(post_list, { authorId: author.id }),
         myComment : author => _.filter(comment_list ,{authorId : author.id}) ,
+        myLike : author => _.filter(reaction_list ,{'authorId' : author.id , 'reaction' : 1 } ),
+        myDisLike :  author => _.filter(reaction_list ,{'authorId' : author.id , 'reaction' : 2 } ),
       },
       //author here is like this.author in "type Author"
     
       Post: {
         author: post => _.find(author_list, { id: post.authorId }),
         comments : post => _.filter(comment_list ,{postId : post.id}),
+        like :  post => _.filter(reaction_list ,{ 'postId' : post.id , 'reaction' : 1 } ) ,
+        disLike :  post => _.filter(reaction_list ,{ 'postId'  : post.id , 'reaction' : 2 } ) ,
       },
+
 
       //post here is like this.post in "type Post"
 
@@ -184,7 +244,19 @@ const resolvers ={
        post : comment => _.find(post_list , { id : comment.postId}) ,
        author: comment => _.find(author_list , { id : comment.authorId})
 
-      }
+      } ,
+
+      Like :{
+        post : l => _.find(post_list , { id : l.postId}) ,
+        author: l => _.find(author_list , { id : l.authorId}) ,
+      
+       } ,
+
+       DisLike : {
+        post : d => _.find(post_list , { id : d.postId}) ,
+        author: d => _.find(author_list , { id : d.authorId}) ,
+     
+       }
         
     
 
