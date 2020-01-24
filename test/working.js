@@ -12,33 +12,43 @@ const author_list = [
   ];
   
   const post_list = [
-    { id: 1, authorId: 1, title: 'Introduction to GraphQL', votes: 2 },
-    { id: 2, authorId: 2, title: 'Welcome to Meteor', votes: 3 },
-    { id: 3, authorId: 2, title: 'Advanced GraphQL', votes: 1 },
-    { id: 4, authorId: 3, title: 'Launchpad is Cool', votes: 7 },
+    { id: 1, authorId: 1, title: 'Introduction to GraphQL'},
+    { id: 2, authorId: 2, title: 'Welcome to Meteor', },
+    { id: 3, authorId: 2, title: 'Advanced GraphQL', },
+    { id: 4, authorId: 3, title: 'Launchpad is Cool',  },
   ];
+
+  
+
+  const comment_list = [
+   { id :1 , authorId:1 , postId : 1 , text:'Comment One'  } ,
+   { id :2 , authorId:1 , postId : 2 , text:'Comment Two'  } ,
+   { id :3 , authorId:2 , postId : 3 , text:'Comment Three' } ,
+   { id :4 , authorId:2 , postId : 4 , text:'Comment Four' } ,
+   { id :5 , authorId:3,  postId : 4 , text:'Comment Five'  } ,
+
+  ]
 
   //0 for No reaction
   //1 for like
   //2 for dislike
 
-  const comment_list = [
-   { id :1 , authorId:1 , postId : 1 , text:'Comment One' , reaction : 1 } ,
-   { id :2 , authorId:1 , postId : 2 , text:'Comment Two' , reaction : 2 } ,
-   { id :3 , authorId:2 , postId : 3 , text:'Comment Three', reaction : 0 } ,
-   { id :4 , authorId:2 , postId : 4 , text:'Comment Four' , reaction : 2} ,
-   { id :5 , authorId:3,  postId : 4 , text:'Comment Five' , reaction : 2 } ,
-
-  ]
-
   const reaction_list = [
     { id :1 ,  authorId:1 , postId : 1 ,  reaction : 1 } ,
-    { id :2, authorId:2 , postId : 1 ,  reaction : 2 } ,
+    { id :2, authorId:2 , postId : 1 ,  reaction : 1 } ,
     { id :3 , authorId:2 , postId : 3 ,  reaction : 0 } ,
-    { id :4 ,authorId:2 , postId : 4 ,  reaction : 2} ,
+    { id :4 ,authorId:2 , postId : 1 ,  reaction : 1} ,
     { id:5  ,  authorId:3,  postId : 4 ,  reaction : 2 } ,
  
    ]
+
+   const follower_list = [
+   { id :1 , authorId:1  , follower: [{authorId :2},{authorId :2}]  } ,
+   {id :1 , authorId:2  , follower: [{authorId :3}] } ,
+   {id :1 , authorId:3  , follower: [{authorId:1}] }
+   ]
+
+
 
 const typeDefs = gql`
 
@@ -61,6 +71,8 @@ type Author {
     like: [Like]
     disLike :[DisLike]
   }
+
+
 
  type Comment {
     id : Int!
@@ -120,8 +132,7 @@ type Author {
     getLikes : [Like]
     getDisLikes : [DisLike]
     getCommentByAuthor(authorId :Int!) : Comment
-    getCommentByPost(postId :Int!) : Comment
-  
+    getCommentByPost(postId :Int!) : Comment  
   }
 
 
@@ -174,7 +185,7 @@ if(!post && !author)
 }
 let react = reaction_list.find(p => p.authorId === reaction.authorId && p.postId === reaction.postId );
    react.reaction = 1;
- return res(react);
+ return res(post);
 
 } )  
 }
@@ -188,7 +199,8 @@ const downvotePost = ({reaction}) => { return new Promise((res , reject) => {
   }
   let react = reaction_list.find(p => p.authorId === reaction.authorId && p.postId === reaction.postId );
      react.reaction = 2;
-   return res(react);
+     
+   return res(post);
     
     } )  
     }
@@ -210,8 +222,9 @@ const resolvers ={
       getComment : async (_  , {id}) => Promise.resolve(comment_list.find( p => p.id === id)) ,
 
       getLikes : async () => Promise.resolve(reaction_list.filter(p => p.reaction === 1)) ,
-      getDisLikes : async () => Promise.resolve(reaction_list.filter(p => p.reaction === 2))
-    },
+      getDisLikes : async () => Promise.resolve(reaction_list.filter(p => p.reaction === 2)),
+
+         },
 
     Mutation :{
      
@@ -235,6 +248,7 @@ const resolvers ={
         comments : post => _.filter(comment_list ,{postId : post.id}),
         like :  post => _.filter(reaction_list ,{ 'postId' : post.id , 'reaction' : 1 } ) ,
         disLike :  post => _.filter(reaction_list ,{ 'postId'  : post.id , 'reaction' : 2 } ) ,
+        votes : post => _.size( _.filter(reaction_list , { 'postId'  : post.id ,'reaction' : 1})) - _.size( _.filter(reaction_list , { 'postId'  : post.id , 'reaction' : 2})) ,
       },
 
 
@@ -268,3 +282,7 @@ server.listen().then(({ url }) => {
     console.log(`🚀  Server ready at ${url}`);
   });
 
+
+  // https://www.howtographql.com/react-apollo/5-authentication/
+
+  // https://levelup.gitconnected.com/what-is-graphql-87fc7687b042
