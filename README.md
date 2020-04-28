@@ -2,4 +2,5 @@
 Learning Project Bloging Graphql -server 
 
 # working file 
-test/working.js using nodemon .test/working.js   
+test/working.js 
+Run using  'node .test/working.js'   
